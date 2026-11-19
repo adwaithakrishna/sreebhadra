@@ -1,0 +1,16 @@
+{
+  "name": "wayfarer-vehicle-booking",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Vehicle booking site: React + Tailwind client, Express + MongoDB API",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -n api,web -c green,yellow \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "seed": "npm --prefix server run seed",
+    "seed:admin": "npm --prefix server run seed:admin",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "test": "npm --prefix server test"
+  },
+  "devDependencies": { "concurrently": "^9.0.1" }
+}

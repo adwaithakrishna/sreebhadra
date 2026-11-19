@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body { @apply bg-ivory font-sans text-charcoal antialiased; }
+  h1, h2, h3, h4 { @apply font-display text-forest; }
+  :focus-visible { outline: 3px solid #E9A83A; outline-offset: 2px; border-radius: 4px; }
+  input, select, textarea, button { font: inherit; }
+}
+
+@layer components {
+  .container-x { @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12; }
+  .eyebrow { @apply font-sans text-xs font-bold uppercase tracking-[0.22em] text-forest/70; }
+  .display-xl { @apply font-display font-extrabold leading-[0.95] tracking-tight; font-size: clamp(2.75rem, 9vw, 7.5rem); }
+  .display-lg { @apply font-display font-extrabold leading-[1] tracking-tight; font-size: clamp(2.1rem, 5.5vw, 4.25rem); }
+  .field { @apply block w-full rounded-xl border border-charcoal/25 bg-white px-4 py-3 text-base text-charcoal shadow-sm transition placeholder:text-charcoal/50 focus:border-forest focus:outline-none focus:ring-4 focus:ring-sun/40; }
+  .field-error { @apply border-red-700 focus:border-red-700 focus:ring-red-200; }
+  .card { @apply rounded-2xl bg-white shadow-[0_1px_0_rgba(23,60,50,.06),0_12px_32px_-16px_rgba(23,60,50,.25)]; }
+}
+
+/* Scroll-reveal: content is visible by default; JS adds .reveal-ready to opt in. */
+.reveal-ready { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
+.reveal-ready.is-visible { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .reveal-ready { opacity: 1; transform: none; }
+}
+@keyframes intro-logo-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.65);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes intro-name-appear {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
