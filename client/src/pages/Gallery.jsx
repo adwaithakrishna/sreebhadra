@@ -1,4 +1,3 @@
-import PageHero from '../components/PageHero';
 import { Spinner, ErrorState, Notice } from '../components/States';
 import { api } from '../lib/api';
 import { useAsync } from '../hooks/useAsync';
@@ -9,11 +8,7 @@ export default function Gallery() {
   const { data: trips, error, loading, reload } = useAsync(api.tripPhotos, []);
 
   return (
-    <>
-      <PageHero eyebrow="Trip gallery" title="Journeys from the road.">
-        Photos, places and stories from trips shared by our team.
-      </PageHero>
-      <section className="container-x pb-24" aria-labelledby="trip-gallery-heading">
+    <section className="container-x py-12 pb-24 sm:py-16" aria-labelledby="trip-gallery-heading">
         <div className="mb-8">
           <p className="eyebrow">From the road</p>
           <h2 id="trip-gallery-heading" className="display-lg mt-3">Places we’ve visited.</h2>
@@ -44,7 +39,6 @@ export default function Gallery() {
             ))}
           </div>
         )}
-      </section>
-    </>
+    </section>
   );
 }
