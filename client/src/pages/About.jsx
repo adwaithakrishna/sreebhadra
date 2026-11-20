@@ -17,12 +17,12 @@ export default function About() {
   useDocumentTitle('About');
   return (
     <>
-      <PageHero eyebrow="About us" title="A travel service built around the journey.">This is placeholder copy - replace it with your own story, history and details.</PageHero>
+      <PageHero eyebrow="About us" title="A travel service built around the journey.">Sree Bhadra</PageHero>
       <section className="container-x grid items-center gap-12 pb-24 lg:grid-cols-2">
         <Reveal className="aspect-[4/3] overflow-hidden rounded-[2rem]"><VehicleArt type="van" scene="coast" label="Illustration of a van on a coastal road (placeholder photograph)" className="h-full w-full" /></Reveal>
         <Reveal delay={100} className="space-y-5 text-lg leading-relaxed">
           <h2 className="text-3xl font-extrabold">What we do</h2>
-          <p>We offer private vehicle hire with professional drivers for transfers, day trips, multi-day tours and group travel. Each booking is arranged around your route, your schedule and your group.</p>
+          <p>Sree Bhadra makes every journey comfortable and dependable. We offer well-maintained vehicles with experienced drivers for family trips, local travel, airport transfers, and special occasions. Tell us where you’re going, and we’ll help you travel with confidence.</p>
           <p><strong className="text-forest">Service area:</strong> {SITE.serviceArea}. Longer routes beyond this area can often be arranged - just ask.</p>
         </Reveal>
       </section>
