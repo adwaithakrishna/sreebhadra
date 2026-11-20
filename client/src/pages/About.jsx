@@ -20,7 +20,7 @@ export default function About() {
       <PageHero eyebrow="About us" title="A travel service built around the journey.">Sree Bhadra</PageHero>
       <section className="container-x grid items-center gap-12 pb-24 lg:grid-cols-2">
         <Reveal className="aspect-[4/3] overflow-hidden rounded-[2rem]"><img
-  src="images/about.jpeg"
+  src="/images/about.jpeg"
   alt="Sree Bhadra vehicle on a trip"
   className="h-full w-full object-cover"
 /></Reveal>
