@@ -5,7 +5,7 @@ import VehicleMedia from '../components/VehicleMedia';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
 import Reveal from '../components/Reveal';
-import { Spinner, ErrorState, EmptyState } from '../components/States';
+import { Spinner, ErrorState, EmptyState, Notice } from '../components/States';
 import { IconBag, IconCheck, IconUsers } from '../components/Icons';
 import { api } from '../lib/api';
 import { TYPE_LABEL } from '../lib/format';
@@ -56,6 +56,7 @@ function VehicleDetail({ vehicle }) {
 export default function Gallery() {
   useDocumentTitle('Gallery');
   const { data, error, loading, reload } = useAsync(api.vehicles, []);
+  const { data: trips, error: tripsError, loading: tripsLoading, reload: reloadTrips } = useAsync(api.tripPhotos, []);
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(null);
   const types = useMemo(() => [...new Set((data || []).map((v) => v.type))], [data]);
@@ -63,8 +64,41 @@ export default function Gallery() {
 
   return (
     <>
-      <PageHero eyebrow="Gallery" title="Meet the fleet.">Every vehicle is cleaned, serviced and driven by a professional. Open any card for photos, amenities and details.</PageHero>
+      <PageHero eyebrow="Gallery" title="Journeys and the fleet.">See places our vehicles have visited, then explore the vehicles and their photos.</PageHero>
+      <section className="container-x py-16 sm:py-20" aria-labelledby="trip-gallery-heading">
+        <div className="mb-8">
+          <p className="eyebrow">From the road</p>
+          <h2 id="trip-gallery-heading" className="display-lg mt-3">Trips we’ve taken.</h2>
+          <p className="mt-3 max-w-2xl text-charcoal/75">Photos and notes from journeys shared by our team.</p>
+        </div>
+        {tripsLoading && <Spinner label="Loading trip photos…" />}
+        {tripsError && <ErrorState error={tripsError} onRetry={reloadTrips} title="Trip photos couldn’t be loaded" />}
+        {!tripsLoading && !tripsError && trips?.length === 0 && (
+          <Notice title="No trip photos yet">New trip photos will appear here when the admin adds them.</Notice>
+        )}
+        {!tripsLoading && !tripsError && trips?.length > 0 && (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {trips.map((trip) => (
+              <article key={trip.id} className="card overflow-hidden">
+                <div className="aspect-[4/3] overflow-hidden bg-sage-100">
+                  <img src={trip.url} alt={`${trip.vehicle?.name || 'Vehicle'} at ${trip.destination}`} loading="lazy" className="h-full w-full object-cover" />
+                </div>
+                <div className="p-5">
+                  <p className="eyebrow">{trip.vehicle?.name || 'Wayfarer trip'}</p>
+                  <h3 className="mt-2 font-display text-2xl font-extrabold text-forest">{trip.destination}</h3>
+                  <p className="mt-2 leading-relaxed text-charcoal/80">{trip.description}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
       <section className="container-x pb-24">
+        <div className="mb-8">
+          <p className="eyebrow">Our vehicles</p>
+          <h2 className="display-lg mt-3">Meet the fleet.</h2>
+          <p className="mt-3 max-w-2xl text-charcoal/75">Open any vehicle for its photos, amenities and details.</p>
+        </div>
         {types.length > 1 && (
           <div role="group" aria-label="Filter by vehicle type" className="mb-10 flex flex-wrap gap-2">
             {['all', ...types].map((t) => (
