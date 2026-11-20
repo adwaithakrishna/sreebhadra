@@ -16,6 +16,7 @@ import Vehicles from './admin/Vehicles';
 import Trips from './admin/Trips';
 import Feedback from './admin/Feedback';
 import Packages from './admin/Packages';
+import NewBooking from './admin/NewBooking';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="login" element={<AdminLogin />} />
         <Route element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="bookings/new" element={<NewBooking />} />
           <Route path="bookings" element={<Bookings />} />
           <Route path="schedule" element={<Schedule />} />
           <Route path="vehicles" element={<Vehicles />} />

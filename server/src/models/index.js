@@ -63,7 +63,7 @@ const bookingSchema = new Schema(
     customer: {
       name: { type: String, required: true, trim: true },
       phone: { type: String, required: true, trim: true },
-      email: { type: String, required: true, trim: true, lowercase: true },
+      email: { type: String, default: '', trim: true, lowercase: true },
     },
     notes: { type: String, default: '', maxlength: 1000 },
     status: { type: String, enum: STATUSES, default: 'pending', index: true },

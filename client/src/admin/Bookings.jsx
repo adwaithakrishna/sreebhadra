@@ -6,6 +6,7 @@ import { Spinner, ErrorState, EmptyState } from '../components/States';
 import StatusBadge from '../components/StatusBadge';
 import BookingDrawer from './BookingDrawer';
 import { formatRange, routeText } from '../lib/format';
+import Button from '../components/Button';
 
 const FILTERS = ['all', 'pending', 'confirmed', 'completed', 'rejected', 'cancelled'];
 
@@ -24,7 +25,10 @@ export default function Bookings() {
 
   return (
     <div>
-      <h1 className="text-4xl font-extrabold">Bookings</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-4xl font-extrabold">Bookings</h1>
+        <Button to="/admin/bookings/new" variant="primary" size="sm">Add booking</Button>
+      </div>
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (

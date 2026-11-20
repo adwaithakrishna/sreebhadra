@@ -60,7 +60,7 @@ function validateBookingInput(body = {}, { timeZone = 'UTC', now = new Date() } 
     errors.phone = 'Enter a valid phone number (digits, spaces, +, - and brackets only).';
 
   const email = str(body.email).toLowerCase();
-  if (!EMAIL_RE.test(email) || email.length > 160) errors.email = 'Enter a valid email address.';
+  if (email && (!EMAIL_RE.test(email) || email.length > 160)) errors.email = 'Enter a valid email address.';
 
   const notes = str(body.notes);
   if (notes.length > 1000) errors.notes = 'Notes must be 1000 characters or fewer.';

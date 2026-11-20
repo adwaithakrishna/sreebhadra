@@ -31,7 +31,7 @@ export function validateBooking(v, vehicle) {
 
   if (v.name.trim().length < 2) e.name = 'Please enter your full name.';
   if (!PHONE_RE.test(v.phone.trim()) || v.phone.replace(/\D/g, '').length < 7) e.phone = 'Enter a valid phone number, e.g. +00 000 000 0000.';
-  if (!EMAIL_RE.test(v.email.trim())) e.email = 'Enter a valid email address.';
+  if (v.email.trim() && !EMAIL_RE.test(v.email.trim())) e.email = 'Enter a valid email address.';
   if (v.notes.length > 1000) e.notes = 'Notes must be 1000 characters or fewer.';
   return e;
 }

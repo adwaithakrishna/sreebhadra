@@ -52,6 +52,7 @@ export const api = {
     me: () => request('/admin/me').then((d) => d.admin),
     stats: () => request('/admin/stats'),
     bookings: () => request('/admin/bookings').then((d) => d.bookings),
+    createBooking: (body) => request('/admin/bookings', { method: 'POST', body }).then((d) => d.booking),
     setStatus: (id, status) => request(`/admin/bookings/${id}/status`, { method: 'PATCH', body: { status } }).then((d) => d.booking),
     vehicles: () => request('/admin/vehicles').then((d) => d.vehicles),
     createVehicle: (body) => request('/admin/vehicles', { method: 'POST', body }).then((d) => d.vehicle),

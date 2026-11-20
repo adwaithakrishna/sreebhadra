@@ -72,7 +72,7 @@ export default function BookingDrawer({ booking, onClose, onChanged }) {
         <dl className="mt-6 divide-y divide-forest/10 rounded-2xl bg-white px-5">
           <Row k="Customer">{booking.customer.name}</Row>
           <Row k="Phone"><a className="underline underline-offset-2" href={`tel:${booking.customer.phone.replace(/[^\d+]/g, '')}`}>{booking.customer.phone}</a></Row>
-          <Row k="Email"><a className="break-all underline underline-offset-2" href={`mailto:${booking.customer.email}`}>{booking.customer.email}</a></Row>
+          <Row k="Email">{booking.customer.email ? <a className="break-all underline underline-offset-2" href={`mailto:${booking.customer.email}`}>{booking.customer.email}</a> : <span className="font-normal text-charcoal/60">Not provided</span>}</Row>
           <Row k="Vehicle">{booking.vehicle ? `${booking.vehicle.name} (seats ${booking.vehicle.capacity})` : 'Vehicle removed'}</Row>
           <Row k="Dates">{formatRange(booking.startDate, booking.endDate)} <span className="font-normal text-charcoal/70">· {daysBetween(booking.startDate, booking.endDate)} day(s)</span></Row>
           <Row k="Start time">{formatTime(booking.startTime)}</Row>

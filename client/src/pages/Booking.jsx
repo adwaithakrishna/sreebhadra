@@ -226,7 +226,7 @@ export default function Booking() {
         <section className="container-x pb-24">
           <div ref={summary} className="card mx-auto max-w-3xl p-6 sm:p-10">
             <div className="flex flex-wrap items-center gap-3"><StatusBadge status="pending" /><span className="font-display text-3xl font-extrabold">{done.reference}</span></div>
-            <Notice tone="warn" title="Your booking is NOT confirmed yet" className="mt-5">Our team will check availability and contact you by phone or email. Keep your reference - you can check its status on this page at any time.</Notice>
+            <Notice tone="warn" title="Your booking is NOT confirmed yet" className="mt-5">Our team will check availability and contact you by phone (and by email if you provided one). Keep your reference and use your phone number to find your booking.</Notice>
             <dl className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">
               {[['Vehicle', done.vehicle], ['Dates', formatRange(done.startDate, done.endDate)], ['Start time', formatTime(done.startTime)], ['Passengers', done.passengers], ['Route', routeText(done)]].map(([k, val]) => (
                 <div key={k} className={k === 'Route' ? 'sm:col-span-2' : ''}><dt className="eyebrow">{k}</dt><dd className="mt-1 text-lg font-medium">{val}</dd></div>
@@ -295,7 +295,7 @@ export default function Booking() {
                 <Field id="b-name" label="Full name" required autoComplete="name" value={v.name} onChange={set('name')} onBlur={blur('name')} error={show('name')} />
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Field id="b-phone" type="tel" inputMode="tel" label="Phone number" required autoComplete="tel" placeholder="+00 000 000 0000" value={v.phone} onChange={set('phone')} onBlur={blur('phone')} error={show('phone')} />
-                  <Field id="b-email" type="email" label="Email" required autoComplete="email" value={v.email} onChange={set('email')} onBlur={blur('email')} error={show('email')} />
+                  <Field id="b-email" type="email" label="Email" autoComplete="email" value={v.email} onChange={set('email')} onBlur={blur('email')} error={show('email')} />
                 </div>
                 <Field id="b-notes" as="textarea" rows={4} label="Notes or special requirements" placeholder="Child seats, accessibility needs, luggage, preferred driver language…" value={v.notes} onChange={set('notes')} error={show('notes')} hint={`${v.notes.length}/1000`} />
               </Section>
