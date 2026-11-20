@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { IconCalendar, IconCar, IconGrid, IconList, IconRoute, IconStar } from '../components/Icons';
+import { IconCalendar, IconCar, IconGrid, IconList, IconPlus, IconRoute, IconStar } from '../components/Icons';
 
 const ITEMS = [
   { to: '/admin', label: 'Dashboard', icon: IconGrid, end: true },
   { to: '/admin/bookings', label: 'Bookings', icon: IconList },
+  { to: '/admin/bookings/new', label: 'Add booking', icon: IconPlus },
   { to: '/admin/schedule', label: 'Schedule', icon: IconCalendar },
   { to: '/admin/vehicles', label: 'Vehicles', icon: IconCar },
   { to: '/admin/trips', label: 'Trip gallery', icon: IconRoute },
