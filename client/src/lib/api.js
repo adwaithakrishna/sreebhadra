@@ -35,7 +35,7 @@ const qs = (o) => new URLSearchParams(o).toString();
 export const api = {
   vehicles: () => request('/vehicles').then((d) => d.vehicles),
   busy: (id) => request(`/vehicles/${id}/busy`).then((d) => d.busy),
-  availability: (id, startDate, endDate) => request(`/vehicles/${id}/availability?${qs({ startDate, endDate })}`),
+  availability: (id, startDate, endDate, startTime, endTime) => request(`/vehicles/${id}/availability?${qs({ startDate, endDate, startTime, endTime })}`),
   createBooking: (body) => request('/bookings', { method: 'POST', body }),
   track: (reference, email) => request(`/bookings/track?${qs({ reference, email })}`).then((d) => d.booking),
   bookingHistory: (phone) => request(`/bookings/history?${qs({ phone })}`).then((d) => d.bookings),

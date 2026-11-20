@@ -76,6 +76,7 @@ export default function BookingDrawer({ booking, onClose, onChanged }) {
           <Row k="Vehicle">{booking.vehicle ? `${booking.vehicle.name} (seats ${booking.vehicle.capacity})` : 'Vehicle removed'}</Row>
           <Row k="Dates">{formatRange(booking.startDate, booking.endDate)} <span className="font-normal text-charcoal/70">· {daysBetween(booking.startDate, booking.endDate)} day(s)</span></Row>
           <Row k="Start time">{formatTime(booking.startTime)}</Row>
+          <Row k="End time">{formatTime(booking.endTime || '23:59')}</Row>
           <Row k="Passengers">{booking.passengers}</Row>
           <Row k="Route">
             <ol className="space-y-1">

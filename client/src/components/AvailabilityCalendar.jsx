@@ -5,19 +5,25 @@ import { MONTH_NAMES, formatDate, parseISO, toISO, todayISO } from '../lib/forma
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /**
- * Month calendar for picking a date range. Days inside a CONFIRMED booking are disabled and
- * labelled "booked". Pending requests are intentionally not shown here (they hold no dates).
+ * Month calendar for picking a date range. Fully occupied days are disabled; partial days
+ * stay selectable because trip start/end times can leave room for another booking.
  */
 export default function AvailabilityCalendar({ busy = [], start, end, onChange, minDate = todayISO() }) {
   const seed = start ? parseISO(start) : new Date();
   const [cursor, setCursor] = useState({ y: seed.getUTCFullYear(), m: seed.getUTCMonth() });
 
   const busyDays = useMemo(() => {
-    const set = new Set();
-    busy.forEach(({ startDate, endDate }) => {
-      for (let t = parseISO(startDate).getTime(); t <= parseISO(endDate).getTime(); t += 86400000) set.add(new Date(t).toISOString().slice(0, 10));
+    const full = new Set();
+    const partial = new Set();
+    busy.forEach(({ startDate, startTime = '00:00', endDate, endTime = '23:59' }) => {
+      for (let t = parseISO(startDate).getTime(); t <= parseISO(endDate).getTime(); t += 86400000) {
+        const day = new Date(t).toISOString().slice(0, 10);
+        const fullDay = (day !== startDate || startTime <= '00:00') && (day !== endDate || endTime >= '23:59');
+        if (fullDay) full.add(day);
+        else partial.add(day);
+      }
     });
-    return set;
+    return { full, partial };
   }, [busy]);
 
   const first = new Date(Date.UTC(cursor.y, cursor.m, 1));
@@ -46,7 +52,8 @@ export default function AvailabilityCalendar({ busy = [], start, end, onChange, 
         {cells.map((day, i) => {
           if (!day) return <div key={`e${i}`} />;
           const iso = toISO(cursor.y, cursor.m, day);
-          const isBusy = busyDays.has(iso);
+          const isBusy = busyDays.full.has(iso);
+          const isPartial = busyDays.partial.has(iso);
           const past = iso < minDate;
           const isStart = iso === start;
           const isEnd = iso === end;
@@ -57,6 +64,7 @@ export default function AvailabilityCalendar({ busy = [], start, end, onChange, 
           if (isStart || isEnd) cls = 'bg-forest text-ivory';
           if (past) cls = 'text-charcoal/35';
           if (isBusy) cls = 'bg-red-50 text-red-800/80 line-through decoration-2';
+          else if (isPartial) cls = 'bg-amber-100 text-forest ring-1 ring-inset ring-amber-300';
           return (
             <button
               key={iso}
@@ -64,7 +72,7 @@ export default function AvailabilityCalendar({ busy = [], start, end, onChange, 
               disabled={disabled}
               onClick={() => pick(iso)}
               aria-pressed={isStart || isEnd || undefined}
-              aria-label={`${formatDate(iso)}${isBusy ? ', booked' : past ? ', unavailable (past)' : ''}${isStart ? ', start date' : ''}${isEnd ? ', end date' : ''}`}
+              aria-label={`${formatDate(iso)}${isBusy ? ', fully booked' : isPartial ? ', partial booking, times checked' : past ? ', unavailable (past)' : ''}${isStart ? ', start date' : ''}${isEnd ? ', end date' : ''}`}
               className={`aspect-square rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed ${cls}`}
             >
               {day}
@@ -75,6 +83,7 @@ export default function AvailabilityCalendar({ busy = [], start, end, onChange, 
       <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-charcoal/80">
         <li className="flex items-center gap-2"><span className="h-3.5 w-3.5 rounded bg-forest" />Your dates</li>
         <li className="flex items-center gap-2"><span className="h-3.5 w-3.5 rounded bg-red-100 ring-1 ring-red-300" />Booked (confirmed)</li>
+        <li className="flex items-center gap-2"><span className="h-3.5 w-3.5 rounded bg-amber-100 ring-1 ring-amber-300" />Part-day booking - times checked</li>
         <li className="flex items-center gap-2"><span className="h-3.5 w-3.5 rounded bg-white ring-1 ring-charcoal/30" />Open - not held until we confirm</li>
       </ul>
     </div>

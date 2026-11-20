@@ -6,7 +6,7 @@ import { IconPin, IconPlus, IconTrash } from '../components/Icons';
 import { api } from '../lib/api';
 import { useAsync } from '../hooks/useAsync';
 
-const EMPTY = { title: '', destination: '', startLocation: '', startDate: '', endDate: '', startTime: '09:00', duration: '', description: '', price: '' };
+const EMPTY = { title: '', destination: '', startLocation: '', startDate: '', endDate: '', startTime: '09:00', endTime: '17:00', duration: '', description: '', price: '' };
 
 export default function Packages() {
   const { data, error, loading, reload, setData } = useAsync(api.admin.packages, []);
@@ -52,12 +52,13 @@ export default function Packages() {
           <Field id="package-start-date" type="date" label="Travel start date" required value={form.startDate} onChange={set('startDate')} />
           <Field id="package-end-date" type="date" label="Travel end date" required min={form.startDate || undefined} value={form.endDate} onChange={set('endDate')} />
           <Field id="package-start-time" type="time" label="Departure time" required value={form.startTime} onChange={set('startTime')} />
+          <Field id="package-end-time" type="time" label="End time" required value={form.endTime} onChange={set('endTime')} />
           <Field id="package-price" label="Price or price note" maxLength={80} placeholder="e.g. From ₹12,000" value={form.price} onChange={set('price')} />
         </div>
         <Field id="package-description" as="textarea" rows={4} label="Package details" required minLength={10} maxLength={1000} placeholder="What is included, key stops, and other details customers should know." value={form.description} onChange={set('description')} />
         {state.error && <Notice tone="error">{state.error}</Notice>}
         {state.success && <Notice tone="success">{state.success}</Notice>}
-        <Button type="submit" variant="dark" loading={state.busy} disabled={form.title.trim().length < 2 || form.destination.trim().length < 2 || form.startLocation.trim().length < 2 || !form.startDate || !form.endDate || !form.startTime || form.description.trim().length < 10}><IconPlus size={18} />Publish package</Button>
+        <Button type="submit" variant="dark" loading={state.busy} disabled={form.title.trim().length < 2 || form.destination.trim().length < 2 || form.startLocation.trim().length < 2 || !form.startDate || !form.endDate || !form.startTime || !form.endTime || form.description.trim().length < 10}><IconPlus size={18} />Publish package</Button>
       </form>
 
       <section className="mt-10" aria-labelledby="published-packages-heading">
@@ -71,7 +72,7 @@ export default function Packages() {
               <h3 className="font-display text-xl font-bold">{item.title}</h3>
               <p className="mt-1 flex items-center gap-1.5 font-medium text-forest"><IconPin size={18} />{item.destination}</p>
               {item.startDate && item.endDate && item.startLocation && item.startTime
-                ? <p className="mt-2 text-sm text-charcoal/75">{item.startLocation} · {item.startDate} to {item.endDate} · {item.startTime}</p>
+                ? <p className="mt-2 text-sm text-charcoal/75">{item.startLocation} · {item.startDate} to {item.endDate} · {item.startTime}–{item.endTime || '23:59'}</p>
                 : <Notice tone="warn" className="mt-2">This older package has no fixed schedule. Remove and recreate it with a starting place, dates, and departure time to show it to customers.</Notice>}
               {(item.duration || item.price) && <p className="mt-2 text-sm text-charcoal/75">{[item.duration, item.price].filter(Boolean).join(' · ')}</p>}
               <p className="mt-3 text-sm leading-relaxed text-charcoal/80">{item.description}</p>

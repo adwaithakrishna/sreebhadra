@@ -8,7 +8,7 @@ import { todayISO } from '../lib/format';
 
 const EMPTY = {
   vehicle: '', name: '', phone: '', email: '', startLocation: '', destination: '',
-  startDate: '', endDate: '', startTime: '09:00', passengers: '2', notes: '',
+  startDate: '', endDate: '', startTime: '09:00', endTime: '17:00', passengers: '2', notes: '',
 };
 
 export default function NewBooking() {
@@ -79,6 +79,7 @@ export default function NewBooking() {
               <Field id="admin-booking-start-date" type="date" label="Travel start date" required min={todayISO()} value={form.startDate} onChange={set('startDate')} error={state.fields.startDate} />
               <Field id="admin-booking-end-date" type="date" label="Travel end date" required min={form.startDate || todayISO()} value={form.endDate} onChange={set('endDate')} error={state.fields.endDate} />
               <Field id="admin-booking-time" type="time" label="Start time" required value={form.startTime} onChange={set('startTime')} error={state.fields.startTime} />
+              <Field id="admin-booking-end-time" type="time" label="End time" required value={form.endTime} onChange={set('endTime')} error={state.fields.endTime} />
               <Field id="admin-booking-passengers" type="number" min="1" max={vehicle?.capacity || undefined} label="Passengers" required value={form.passengers} onChange={set('passengers')} error={state.fields.passengers} />
             </div>
             <Field id="admin-booking-notes" as="textarea" rows={4} label="Notes or special requirements" maxLength={1000} value={form.notes} onChange={set('notes')} error={state.fields.notes} />

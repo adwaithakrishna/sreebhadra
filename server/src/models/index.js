@@ -59,6 +59,7 @@ const bookingSchema = new Schema(
     startDate: { type: String, required: true, match: DATE_RE },
     endDate: { type: String, required: true, match: DATE_RE },
     startTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    endTime: { type: String, default: '23:59', match: /^([01]\d|2[0-3]):[0-5]\d$/ },
     passengers: { type: Number, required: true, min: 1 },
     customer: {
       name: { type: String, required: true, trim: true },
@@ -87,7 +88,7 @@ bookingSchema.index({ vehicle: 1, status: 1, startDate: 1, endDate: 1 });
 // Works on a standalone MongoDB (no replica set / transactions needed).
 const bookingLockSchema = new Schema({
   vehicle: { type: Schema.Types.ObjectId, ref: 'Vehicle', required: true },
-  day: { type: String, required: true, match: DATE_RE },
+  day: { type: String, required: true, maxlength: 24 },
   booking: { type: Schema.Types.ObjectId, ref: 'Booking', required: true, index: true },
 });
 bookingLockSchema.index({ vehicle: 1, day: 1 }, { unique: true });
@@ -111,6 +112,7 @@ const travelPackageSchema = new Schema(
     startDate: { type: String, required: true, match: DATE_RE },
     endDate: { type: String, required: true, match: DATE_RE },
     startTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    endTime: { type: String, default: '23:59', match: /^([01]\d|2[0-3]):[0-5]\d$/ },
     duration: { type: String, default: '', trim: true, maxlength: 80 },
     description: { type: String, required: true, trim: true, maxlength: 1000 },
     price: { type: String, default: '', trim: true, maxlength: 80 },

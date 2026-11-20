@@ -1,15 +1,16 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const multer = require('multer');
 const mongoose = require('mongoose');
 const rateLimit = require('express-rate-limit');
 const { AdminUser, Vehicle, VehicleImage, TripGalleryPhoto, Booking, BookingLock, Feedback, TravelPackage } = require('../models');
 const { asyncHandler, requireAdmin, signAdminToken, COOKIE, cookieOptions } = require('../middleware');
-const { HttpError } = require('../lib/errors');
+const { HttpError, AvailabilityError } = require('../lib/errors');
 const { STATUSES } = require('../lib/status');
-const { validateVehicleInput } = require('../lib/validation');
+const { validateVehicleInput, validateBookingInput } = require('../lib/validation');
 const { isValidDateString, isValidTimeString, nowInTimezone } = require('../lib/dates');
-const { changeStatus } = require('../services/availability');
+const { changeStatus, findConfirmedConflicts } = require('../services/availability');
 const { saveImage, deleteImage } = require('../services/storage');
 const config = require('../config');
 
@@ -70,6 +71,7 @@ const packageView = (item) => ({
   startDate: item.startDate,
   endDate: item.endDate,
   startTime: item.startTime,
+  endTime: item.endTime || '23:59',
   duration: item.duration,
   description: item.description,
   price: item.price,
@@ -87,7 +89,7 @@ router.get(
 router.post(
   '/packages',
   asyncHandler(async (req, res) => {
-    const { title, destination, startLocation, startDate, endDate, startTime, duration = '', description, price = '' } = req.body || {};
+    const { title, destination, startLocation, startDate, endDate, startTime, endTime, duration = '', description, price = '' } = req.body || {};
     if (typeof title !== 'string' || title.trim().length < 2 || title.trim().length > 80)
       throw new HttpError(422, 'Package title must be 2 to 80 characters.');
     if (typeof destination !== 'string' || destination.trim().length < 2 || destination.trim().length > 160)
@@ -98,6 +100,7 @@ router.post(
     if (!isValidDateString(startDate) || startDate < today.date) throw new HttpError(422, 'Choose a valid package start date today or later.');
     if (!isValidDateString(endDate) || endDate < startDate) throw new HttpError(422, 'End date must be on or after the start date.');
     if (!isValidTimeString(startTime)) throw new HttpError(422, 'Choose a valid departure time.');
+    if (!isValidTimeString(endTime) || (startDate === endDate && endTime <= startTime)) throw new HttpError(422, 'Choose a valid end time after the departure time.');
     if (startDate === today.date && startTime <= today.time) throw new HttpError(422, 'Departure time has already passed today.');
     if (typeof duration !== 'string' || duration.trim().length > 80)
       throw new HttpError(422, 'Duration must be 80 characters or fewer.');
@@ -107,7 +110,7 @@ router.post(
       throw new HttpError(422, 'Price must be 80 characters or fewer.');
     const item = await TravelPackage.create({
       title: title.trim(), destination: destination.trim(), startLocation: startLocation.trim(),
-      startDate, endDate, startTime, duration: duration.trim(),
+      startDate, endDate, startTime, endTime, duration: duration.trim(),
       description: description.trim(), price: price.trim(),
     });
     res.status(201).json({ package: packageView(item.toObject()) });
@@ -228,6 +231,7 @@ const bookingView = (b) => ({
   startDate: b.startDate,
   endDate: b.endDate,
   startTime: b.startTime,
+  endTime: b.endTime || '23:59',
   passengers: b.passengers,
   customer: b.customer,
   notes: b.notes,
@@ -243,6 +247,49 @@ router.get(
     if (isId(req.query.vehicle)) q.vehicle = req.query.vehicle;
     const rows = await Booking.find(q).populate('vehicle', 'name type capacity').sort({ createdAt: -1 }).limit(500).lean();
     res.json({ bookings: rows.map(bookingView) });
+  })
+);
+
+const REF_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function newBookingReference() {
+  const bytes = crypto.randomBytes(6);
+  return 'WF-' + Array.from(bytes, (b) => REF_ALPHABET[b % REF_ALPHABET.length]).join('');
+}
+
+// Staff can record a booking made by phone or in person. It remains pending until
+// an admin confirms it, and confirmation performs the normal atomic availability check.
+router.post(
+  '/bookings',
+  asyncHandler(async (req, res) => {
+    const { errors, value } = validateBookingInput(req.body || {}, { timeZone: config.timeZone });
+    let vehicle = null;
+    if (!errors.vehicle) {
+      vehicle = await Vehicle.findById(value.vehicle).lean();
+      if (!vehicle || vehicle.availability !== 'available') errors.vehicle = 'That vehicle is not available to book right now.';
+      else if (!errors.passengers && value.passengers > vehicle.capacity)
+        errors.passengers = `${vehicle.name} seats up to ${vehicle.capacity} passengers.`;
+    }
+    if (Object.keys(errors).length) return res.status(422).json({ message: 'Please fix the highlighted fields.', errors });
+
+    const conflicts = await findConfirmedConflicts(vehicle._id, value.startDate, value.endDate, { startTime: value.startTime, endTime: value.endTime });
+    if (conflicts.length) throw new AvailabilityError(conflicts.map((item) => ({ startDate: item.startDate, startTime: item.startTime, endDate: item.endDate, endTime: item.endTime || '23:59' })));
+
+    let booking;
+    for (let attempt = 0; attempt < 3 && !booking; attempt++) {
+      try {
+        booking = await Booking.create({
+          ...value,
+          package: null,
+          reference: newBookingReference(),
+          status: 'pending',
+          statusHistory: [{ status: 'pending', by: req.admin.email }],
+        });
+      } catch (err) {
+        if (!(err.code === 11000 && attempt < 2)) throw err;
+      }
+    }
+    const saved = await Booking.findById(booking._id).populate('vehicle', 'name type capacity').lean();
+    res.status(201).json({ booking: bookingView(saved) });
   })
 );
 

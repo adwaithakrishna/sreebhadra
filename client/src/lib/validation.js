@@ -25,6 +25,10 @@ export function validateBooking(v, vehicle) {
   if (!v.startTime) e.startTime = 'Choose a start time.';
   else if (v.startDate === today && v.startTime <= nowHHMM()) e.startTime = 'That time has already passed today.';
 
+  if (!v.endTime) e.endTime = 'Choose an end time.';
+  else if (v.startDate && v.endDate === v.startDate && v.endTime <= v.startTime)
+    e.endTime = 'End time must be later than start time for a same-day trip.';
+
   const pax = Number(v.passengers);
   if (!v.passengers || !Number.isInteger(pax) || pax < 1) e.passengers = 'Enter at least 1 passenger.';
   else if (vehicle && pax > vehicle.capacity) e.passengers = `${vehicle.name} seats up to ${vehicle.capacity}. Reduce the group or pick a larger vehicle.`;

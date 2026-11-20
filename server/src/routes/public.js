@@ -6,7 +6,7 @@ const { Vehicle, VehicleImage, TripGalleryPhoto, Booking, Feedback, TravelPackag
 const { asyncHandler } = require('../middleware');
 const { HttpError, AvailabilityError } = require('../lib/errors');
 const { validateBookingInput, validateContactInput } = require('../lib/validation');
-const { isValidDateString, nowInTimezone, MAX_TRIP_DAYS, daysInclusive } = require('../lib/dates');
+const { isValidDateString, isValidTimeString, nowInTimezone, MAX_TRIP_DAYS, daysInclusive } = require('../lib/dates');
 const { checkAvailability, listBusyRanges, findConfirmedConflicts } = require('../services/availability');
 const config = require('../config');
 
@@ -109,6 +109,7 @@ router.get(
       startDate: item.startDate,
       endDate: item.endDate,
       startTime: item.startTime,
+      endTime: item.endTime || '23:59',
       duration: item.duration,
       description: item.description,
       price: item.price,
@@ -131,6 +132,7 @@ router.get(
       startDate: item.startDate,
       endDate: item.endDate,
       startTime: item.startTime,
+      endTime: item.endTime || '23:59',
       duration: item.duration,
       description: item.description,
       price: item.price,
@@ -162,14 +164,18 @@ router.get(
   '/vehicles/:id/availability',
   asyncHandler(async (req, res) => {
     const { startDate, endDate } = req.query;
+    const startTime = req.query.startTime || '00:00';
+    const endTime = req.query.endTime || '23:59';
     if (!isId(req.params.id)) throw new HttpError(404, 'Vehicle not found.');
     if (!isValidDateString(startDate) || !isValidDateString(endDate) || endDate < startDate)
       throw new HttpError(400, 'Provide valid startDate and endDate (YYYY-MM-DD).');
+    if (!isValidTimeString(startTime) || !isValidTimeString(endTime) || (startDate === endDate && endTime <= startTime))
+      throw new HttpError(400, 'Provide valid trip times; the end time must follow the start time for a same-day trip.');
     if (daysInclusive(startDate, endDate) > MAX_TRIP_DAYS) throw new HttpError(400, 'Date range is too long.');
     const vehicle = await Vehicle.findById(req.params.id).select('availability').lean();
     if (!vehicle || vehicle.availability !== 'available')
       return res.json({ available: false, reason: 'vehicle_unavailable', conflicts: [] });
-    res.json(await checkAvailability(req.params.id, startDate, endDate));
+    res.json(await checkAvailability(req.params.id, startDate, endDate, startTime, endTime));
   })
 );
 
@@ -188,6 +194,7 @@ const publicBooking = (b, vehicleName) => ({
   startDate: b.startDate,
   endDate: b.endDate,
   startTime: b.startTime,
+  endTime: b.endTime || '23:59',
   passengers: b.passengers,
   createdAt: b.createdAt,
 });
@@ -211,6 +218,7 @@ router.post(
       startDate: selectedPackage.startDate,
       endDate: selectedPackage.endDate,
       startTime: selectedPackage.startTime,
+      endTime: selectedPackage.endTime || '23:59',
     } : body;
     const { errors, value } = validateBookingInput(bookingInput, { timeZone: config.timeZone });
 
@@ -223,8 +231,8 @@ router.post(
     }
     if (Object.keys(errors).length) return res.status(422).json({ message: 'Please fix the highlighted fields.', errors });
 
-    const conflicts = await findConfirmedConflicts(vehicle._id, value.startDate, value.endDate);
-    if (conflicts.length) throw new AvailabilityError(conflicts.map((c) => ({ startDate: c.startDate, endDate: c.endDate })));
+    const conflicts = await findConfirmedConflicts(vehicle._id, value.startDate, value.endDate, { startTime: value.startTime, endTime: value.endTime });
+    if (conflicts.length) throw new AvailabilityError(conflicts.map((c) => ({ startDate: c.startDate, startTime: c.startTime, endDate: c.endDate, endTime: c.endTime || '23:59' })));
 
     let booking;
     for (let attempt = 0; attempt < 3 && !booking; attempt++) {
@@ -275,7 +283,7 @@ router.get(
     if (!lookup) throw new HttpError(400, 'Enter the phone number used for your bookings.');
     const rows = await Booking.find({ 'customer.phone': { $regex: lookup.regex } })
       .populate('vehicle', 'name')
-      .select('reference status vehicle startLocation stops startDate endDate startTime passengers createdAt')
+      .select('reference status vehicle startLocation stops startDate endDate startTime endTime passengers createdAt')
       .sort({ startDate: -1, createdAt: -1 })
       .lean();
     const today = nowInTimezone(config.timeZone).date;

@@ -1,15 +1,28 @@
 const { Booking, BookingLock } = require('../models');
-const { enumerateDays } = require('../lib/dates');
 const { AvailabilityError, HttpError } = require('../lib/errors');
 const { canTransition } = require('../lib/status');
 const { nowInTimezone } = require('../lib/dates');
 const config = require('../config');
 
-/**
- * Confirmed bookings for a vehicle that overlap [startDate, endDate] (inclusive).
- * Two inclusive ranges overlap when existing.start <= req.end AND existing.end >= req.start.
- */
-async function findConfirmedConflicts(vehicleId, startDate, endDate, { excludeBookingId } = {}) {
+const dateTimeMs = (date, time) => Date.parse(`${date}T${time}:00.000Z`);
+
+/** Return 15-minute lock keys touched by a half-open trip interval. */
+function enumerateTimeSlots(startDate, startTime, endDate, endTime) {
+  const slotMs = 15 * 60 * 1000;
+  const start = dateTimeMs(startDate, startTime);
+  const end = dateTimeMs(endDate, endTime);
+  const first = Math.floor(start / slotMs);
+  const lastExclusive = Math.ceil(end / slotMs);
+  const slots = [];
+  for (let slot = first; slot < lastExclusive; slot++) {
+    const slotStart = new Date(slot * slotMs).toISOString();
+    slots.push(`${slotStart.slice(0, 10)}T${slotStart.slice(11, 16)}`);
+  }
+  return slots;
+}
+
+/** Find confirmed trips whose actual start/end times overlap the requested interval. */
+async function findConfirmedConflicts(vehicleId, startDate, endDate, { startTime = '00:00', endTime = '23:59', excludeBookingId } = {}) {
   const query = {
     vehicle: vehicleId,
     status: 'confirmed',
@@ -17,34 +30,40 @@ async function findConfirmedConflicts(vehicleId, startDate, endDate, { excludeBo
     endDate: { $gte: startDate },
   };
   if (excludeBookingId) query._id = { $ne: excludeBookingId };
-  return Booking.find(query).select('startDate endDate').sort({ startDate: 1 }).lean();
+  const rows = await Booking.find(query).select('startDate startTime endDate endTime').sort({ startDate: 1 }).lean();
+  const requestedStart = dateTimeMs(startDate, startTime);
+  const requestedEnd = dateTimeMs(endDate, endTime);
+  return rows.filter((row) => {
+    const existingStart = dateTimeMs(row.startDate, row.startTime || '00:00');
+    const existingEnd = dateTimeMs(row.endDate, row.endTime || '23:59');
+    return requestedStart < existingEnd && existingStart < requestedEnd;
+  });
 }
 
 /** Public-safe availability answer. Never exposes customer data. */
-async function checkAvailability(vehicleId, startDate, endDate) {
-  const conflicts = await findConfirmedConflicts(vehicleId, startDate, endDate);
+async function checkAvailability(vehicleId, startDate, endDate, startTime = '00:00', endTime = '23:59') {
+  const conflicts = await findConfirmedConflicts(vehicleId, startDate, endDate, { startTime, endTime });
   return {
     available: conflicts.length === 0,
-    conflicts: conflicts.map((c) => ({ startDate: c.startDate, endDate: c.endDate })),
+    conflicts: conflicts.map((c) => ({ startDate: c.startDate, startTime: c.startTime, endDate: c.endDate, endTime: c.endTime || '23:59' })),
   };
 }
 
 /** All upcoming confirmed ranges for a vehicle (for the booking calendar). */
 async function listBusyRanges(vehicleId, fromDate) {
   const rows = await Booking.find({ vehicle: vehicleId, status: 'confirmed', endDate: { $gte: fromDate } })
-    .select('startDate endDate')
+    .select('startDate startTime endDate endTime')
     .sort({ startDate: 1 })
     .lean();
-  return rows.map((r) => ({ startDate: r.startDate, endDate: r.endDate }));
+  return rows.map((r) => ({ startDate: r.startDate, startTime: r.startTime || '00:00', endDate: r.endDate, endTime: r.endTime || '23:59' }));
 }
 
 /**
  * Atomically confirm a pending booking.
  *
  * 1. Friendly pre-check against other confirmed bookings (gives useful conflict dates).
- * 2. Claim one BookingLock per day. The unique (vehicle, day) index guarantees only one
- *    booking can hold any given day, so two near-simultaneous confirmations of overlapping
- *    ranges cannot both succeed - the loser gets a duplicate-key error and rolls back.
+ * 2. Claim one BookingLock per 15-minute time slot. The unique (vehicle, day) index prevents
+ *    simultaneous confirmations from claiming overlapping time intervals.
  * 3. Flip status pending -> confirmed with a conditional update (so a concurrent
  *    reject/cancel is respected). If that fails, locks are released.
  */
@@ -55,24 +74,21 @@ async function confirmBooking(bookingId, adminLabel = 'admin') {
   if (!canTransition(booking.status, 'confirmed'))
     throw new HttpError(409, `A ${booking.status} booking cannot be confirmed.`);
 
-  const conflicts = await findConfirmedConflicts(booking.vehicle, booking.startDate, booking.endDate, {
-    excludeBookingId: booking._id,
-  });
-  if (conflicts.length) throw new AvailabilityError(conflicts.map((c) => ({ startDate: c.startDate, endDate: c.endDate })));
+  const range = { startTime: booking.startTime, endTime: booking.endTime || '23:59', excludeBookingId: booking._id };
+  const conflicts = await findConfirmedConflicts(booking.vehicle, booking.startDate, booking.endDate, range);
+  if (conflicts.length) throw new AvailabilityError(conflicts.map((c) => ({ startDate: c.startDate, startTime: c.startTime, endDate: c.endDate, endTime: c.endTime || '23:59' })));
 
-  const days = enumerateDays(booking.startDate, booking.endDate);
+  const slots = enumerateTimeSlots(booking.startDate, booking.startTime, booking.endDate, booking.endTime || '23:59');
   try {
     await BookingLock.insertMany(
-      days.map((day) => ({ vehicle: booking.vehicle, day, booking: booking._id })),
+      slots.map((day) => ({ vehicle: booking.vehicle, day, booking: booking._id })),
       { ordered: true }
     );
   } catch (err) {
     await BookingLock.deleteMany({ booking: booking._id });
     if (err && (err.code === 11000 || err.writeErrors)) {
-      const fresh = await findConfirmedConflicts(booking.vehicle, booking.startDate, booking.endDate, {
-        excludeBookingId: booking._id,
-      });
-      throw new AvailabilityError(fresh.map((c) => ({ startDate: c.startDate, endDate: c.endDate })));
+      const fresh = await findConfirmedConflicts(booking.vehicle, booking.startDate, booking.endDate, range);
+      throw new AvailabilityError(fresh.map((c) => ({ startDate: c.startDate, startTime: c.startTime, endDate: c.endDate, endTime: c.endTime || '23:59' })));
     }
     throw err;
   }

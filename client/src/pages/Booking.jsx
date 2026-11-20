@@ -15,7 +15,7 @@ import { useAsync } from '../hooks/useAsync';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const EMPTY = {
-  vehicle: '', startLocation: '', stops: [''], startDate: '', endDate: '', startTime: '09:00',
+  vehicle: '', startLocation: '', stops: [''], startDate: '', endDate: '', startTime: '09:00', endTime: '17:00',
   passengers: '2', name: '', phone: '', email: '', notes: '',
 };
 
@@ -34,7 +34,7 @@ const Section = ({ n, title, children }) => (
 function AvailabilityPanel({ state, vehicle }) {
   if (!vehicle) return <Notice>Choose a vehicle and dates to check availability.</Notice>;
   if (state.status === 'idle') return <Notice>Pick your travel dates to check whether {vehicle.name} is free.</Notice>;
-  if (state.status === 'checking') return <Notice><span className="inline-flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-forest/40 border-t-forest" aria-hidden="true" />Checking {vehicle.name} for your whole date range…</span></Notice>;
+  if (state.status === 'checking') return <Notice><span className="inline-flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-forest/40 border-t-forest" aria-hidden="true" />Checking {vehicle.name} for your selected dates and times…</span></Notice>;
   if (state.status === 'error') return <Notice tone="warn" title="Couldn’t check availability">{state.message} You can still send the request - we’ll verify it when we review it.</Notice>;
   if (state.status === 'unavailable')
     return (
@@ -42,8 +42,8 @@ function AvailabilityPanel({ state, vehicle }) {
         <p className="mt-1">
           {state.reason === 'vehicle_unavailable'
             ? `${vehicle.name} can’t be booked right now.`
-            : `${vehicle.name} already has a confirmed booking on ${state.conflicts.map((c) => formatRange(c.startDate, c.endDate)).join(' and ')}.`}{' '}
-          Please change your dates or choose another vehicle.
+            : `${vehicle.name} already has a confirmed booking during ${state.conflicts.map((c) => `${formatRange(c.startDate, c.endDate)} (${formatTime(c.startTime)}–${formatTime(c.endTime)})`).join(' and ')}.`}{' '}
+          Please change your travel times, dates, or vehicle.
         </p>
       </Notice>
     );
@@ -114,7 +114,7 @@ function TrackRequest() {
               ? <Notice>No bookings were found for that phone number. Use the same number you entered when booking.</Notice>
               : <div className="space-y-3">{state.bookings.map((booking) => <div key={booking.reference} className="card p-5">
                   <div className="flex flex-wrap items-center gap-3"><StatusBadge status={booking.status} /><span className="font-bold">{booking.reference}</span></div>
-                  <p className="mt-3">{booking.vehicle} · {formatRange(booking.startDate, booking.endDate)} · {routeText(booking)}</p>
+                  <p className="mt-3">{booking.vehicle} · {formatRange(booking.startDate, booking.endDate)} · {formatTime(booking.startTime)}–{formatTime(booking.endTime)} · {routeText(booking)}</p>
                   <p className="mt-2 text-sm text-charcoal/80">{{ pending: 'Awaiting confirmation from our team. Dates are not held yet.', confirmed: 'Confirmed - your vehicle is reserved.', rejected: 'We couldn’t accommodate this request. Please try other dates or vehicle.', cancelled: 'This booking was cancelled.', completed: 'This journey is complete. Thank you for travelling with us.' }[booking.status]}</p>
                   <TripFeedback booking={booking} phone={phone.trim()} onSubmitted={() => setState((current) => ({ ...current, bookings: current.bookings.map((item) => item.reference === booking.reference ? { ...item, feedbackSubmitted: true } : item) }))} />
                 </div>)}</div>
@@ -153,6 +153,7 @@ export default function Booking() {
       startDate: packageData.startDate,
       endDate: packageData.endDate,
       startTime: packageData.startTime,
+      endTime: packageData.endTime || '17:00',
     }));
   }, [packageData]);
 
@@ -176,18 +177,18 @@ export default function Booking() {
   }, [v.vehicle]);
 
   // Debounced availability check for the ENTIRE selected range.
-  const datesOk = v.vehicle && v.startDate && v.endDate && !errors.startDate && !errors.endDate;
+  const datesOk = v.vehicle && v.startDate && v.endDate && v.startTime && v.endTime && !errors.startDate && !errors.endDate && !errors.startTime && !errors.endTime;
   useEffect(() => {
     if (!datesOk) { setAvail({ status: 'idle', conflicts: [] }); return; }
     setAvail({ status: 'checking', conflicts: [] });
     let live = true;
     const t = setTimeout(() => {
-      api.availability(v.vehicle, v.startDate, v.endDate)
+      api.availability(v.vehicle, v.startDate, v.endDate, v.startTime, v.endTime)
         .then((r) => live && setAvail(r.available ? { status: 'available', conflicts: [] } : { status: 'unavailable', conflicts: r.conflicts || [], reason: r.reason }))
         .catch((e) => live && setAvail({ status: 'error', conflicts: [], message: e.message }));
     }, 350);
     return () => { live = false; clearTimeout(t); };
-  }, [datesOk, v.vehicle, v.startDate, v.endDate]);
+  }, [datesOk, v.vehicle, v.startDate, v.endDate, v.startTime, v.endTime]);
 
   const setStop = (i, val) => setV((p) => ({ ...p, stops: p.stops.map((s, j) => (j === i ? val : s)) }));
   const addStop = () => setV((p) => (p.stops.length < 15 ? { ...p, stops: [...p.stops, ''] } : p));
@@ -211,7 +212,7 @@ export default function Booking() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setAvail({ status: 'unavailable', conflicts: err.data.conflicts || [] });
-        setSubmit({ status: 'error', message: 'Someone else’s confirmed booking now overlaps these dates. Please choose different dates or another vehicle.' });
+        setSubmit({ status: 'error', message: 'Someone else’s confirmed booking now overlaps these dates or times. Please choose another time, dates, or vehicle.' });
       } else {
         setServerErr(err.fieldErrors || {});
         setSubmit({ status: 'error', message: err.message });
@@ -228,7 +229,7 @@ export default function Booking() {
             <div className="flex flex-wrap items-center gap-3"><StatusBadge status="pending" /><span className="font-display text-3xl font-extrabold">{done.reference}</span></div>
             <Notice tone="warn" title="Your booking is NOT confirmed yet" className="mt-5">Our team will check availability and contact you by phone (and by email if you provided one). Keep your reference and use your phone number to find your booking.</Notice>
             <dl className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">
-              {[['Vehicle', done.vehicle], ['Dates', formatRange(done.startDate, done.endDate)], ['Start time', formatTime(done.startTime)], ['Passengers', done.passengers], ['Route', routeText(done)]].map(([k, val]) => (
+              {[['Vehicle', done.vehicle], ['Dates', formatRange(done.startDate, done.endDate)], ['Start time', formatTime(done.startTime)], ['End time', formatTime(done.endTime)], ['Passengers', done.passengers], ['Route', routeText(done)]].map(([k, val]) => (
                 <div key={k} className={k === 'Route' ? 'sm:col-span-2' : ''}><dt className="eyebrow">{k}</dt><dd className="mt-1 text-lg font-medium">{val}</dd></div>
               ))}
             </dl>
@@ -242,7 +243,7 @@ export default function Booking() {
   const blocked = avail.status === 'unavailable';
   return (
     <>
-      <PageHero eyebrow={packageData ? 'Package booking' : 'Booking'} title={packageData ? `Book ${packageData.title}.` : 'Book your journey.'}>{packageData ? 'The package route, dates and departure time are fixed. Choose a vehicle and tell us who is travelling.' : 'Tell us where you’re going and when. We’ll check the full date range against our confirmed bookings, then confirm with you personally.'}</PageHero>
+      <PageHero eyebrow={packageData ? 'Package booking' : 'Booking'} title={packageData ? `Book ${packageData.title}.` : 'Book your journey.'}>{packageData ? 'The package route, dates and trip times are fixed. Choose a vehicle and tell us who is travelling.' : 'Tell us where you’re going and when. We’ll check your dates and times against confirmed bookings, then confirm with you personally.'}</PageHero>
       <section className="container-x pb-16">
         {vLoading && <Spinner label="Loading vehicles…" />}
         {vErr && <ErrorState error={vErr} onRetry={reload} title="We can’t take bookings right now" />}
@@ -252,7 +253,7 @@ export default function Booking() {
         {vehicles && vehicles.length > 0 && (!packageId || packageData) && (
           <form onSubmit={onSubmit} noValidate className="grid gap-8 lg:grid-cols-[1fr_380px] lg:items-start">
             <div className="space-y-8">
-              {packageData && <Notice title="Package schedule is fixed">The starting place, destination, dates and departure time are set by this package and can’t be changed here.</Notice>}
+              {packageData && <Notice title="Package schedule is fixed">The starting place, destination, dates, start time and end time are set by this package and can’t be changed here.</Notice>}
               <Section n="1" title="Your route">
                 <Field id="b-start" label="Starting place" required autoComplete="off" placeholder="e.g. Hotel, airport, address or town" value={v.startLocation} onChange={set('startLocation')} onBlur={blur('startLocation')} error={show('startLocation')} disabled={packageLocked} />
                 <div>
@@ -279,6 +280,7 @@ export default function Booking() {
                   <Field id="b-sd" type="date" label="Travel start date" required min={todayISO()} value={v.startDate} onChange={(e) => setDates(e.target.value, v.endDate && e.target.value > v.endDate ? '' : v.endDate)} onBlur={blur('startDate')} error={show('startDate')} disabled={packageLocked} />
                   <Field id="b-ed" type="date" label="Travel end date" required min={v.startDate || todayISO()} value={v.endDate} onChange={(e) => setDates(v.startDate, e.target.value)} onBlur={blur('endDate')} error={show('endDate')} disabled={packageLocked} />
                   <Field id="b-time" type="time" label="Journey start time" required value={v.startTime} onChange={set('startTime')} onBlur={blur('startTime')} error={show('startTime')} disabled={packageLocked} />
+                  <Field id="b-end-time" type="time" label="Journey end time" required value={v.endTime} onChange={set('endTime')} onBlur={blur('endTime')} error={show('endTime')} disabled={packageLocked} />
                   <Field id="b-pax" type="number" inputMode="numeric" min="1" max={vehicle?.capacity || undefined} label="Number of passengers" required value={v.passengers} onChange={set('passengers')} onBlur={blur('passengers')} hint={vehicle ? `${vehicle.name} seats up to ${vehicle.capacity}.` : undefined} error={show('passengers')} />
                 </div>
                 <div aria-live="polite"><AvailabilityPanel state={avail} vehicle={vehicle} /></div>
@@ -286,7 +288,7 @@ export default function Booking() {
                   <div>
                     <p className="mb-2 text-sm font-bold text-forest">Or pick your dates on the calendar</p>
                     <AvailabilityCalendar busy={busy} start={v.startDate} end={v.endDate} onChange={setDates} />
-                    <p className="mt-2 text-sm text-charcoal/75">Click a start day, then an end day. Booked days are disabled; the full range is checked when you choose it.</p>
+                    <p className="mt-2 text-sm text-charcoal/75">Click a start day, then an end day. Fully booked days are disabled; part-day bookings are checked against your selected times.</p>
                   </div>
                 ) : packageLocked ? <p className="text-sm text-charcoal/75">The package dates are fixed; choose a vehicle to check availability.</p> : <p className="text-sm text-charcoal/75">Select a vehicle to see its calendar.</p>}
               </Section>

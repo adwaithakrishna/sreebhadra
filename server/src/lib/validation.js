@@ -47,6 +47,11 @@ function validateBookingInput(body = {}, { timeZone = 'UTC', now = new Date() } 
   if (!isValidTimeString(startTime)) errors.startTime = 'Enter a valid start time.';
   else if (startDate === today.date && startTime <= today.time) errors.startTime = 'Start time has already passed today.';
 
+  const endTime = str(body.endTime);
+  if (!isValidTimeString(endTime)) errors.endTime = 'Enter a valid end time.';
+  else if (startDate && endDate === startDate && isValidTimeString(startTime) && endTime <= startTime)
+    errors.endTime = 'End time must be later than start time for a same-day trip.';
+
   const passengers = Number(body.passengers);
   if (!Number.isInteger(passengers) || passengers < 1) errors.passengers = 'Enter at least 1 passenger.';
   else if (passengers > 100) errors.passengers = 'Please contact us for groups this large.';
@@ -68,7 +73,7 @@ function validateBookingInput(body = {}, { timeZone = 'UTC', now = new Date() } 
   return {
     errors,
     value: {
-      vehicle, startLocation, stops, startDate, endDate, startTime, passengers,
+      vehicle, startLocation, stops, startDate, endDate, startTime, endTime, passengers,
       customer: { name, phone, email }, notes,
     },
   };

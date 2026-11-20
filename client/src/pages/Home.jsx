@@ -102,7 +102,7 @@ export default function Home() {
                       <p className="eyebrow">{item.title}</p>
                       <h3 className="mt-2 flex items-start gap-2 font-display text-2xl font-extrabold text-forest"><IconPin className="mt-1 shrink-0" />{item.destination}</h3>
                       <p className="mt-2 text-sm font-medium text-charcoal/75">{item.startLocation} → {item.destination}</p>
-                      <p className="mt-1 text-sm text-charcoal/75">{formatRange(item.startDate, item.endDate)} · {formatTime(item.startTime)}{item.duration ? ` · ${item.duration}` : ''}</p>
+                      <p className="mt-1 text-sm text-charcoal/75">{formatRange(item.startDate, item.endDate)} · {formatTime(item.startTime)}–{formatTime(item.endTime || '23:59')}{item.duration ? ` · ${item.duration}` : ''}</p>
                       {item.price && <p className="mt-2 text-sm font-bold text-forest">{item.price}</p>}
                       <p className="mt-3 flex-1 leading-relaxed text-charcoal/85">{item.description}</p>
                       <Button to={`/booking?package=${encodeURIComponent(item.id)}`} variant="outline" size="sm" className="mt-5 self-start">Book this package <IconArrow /></Button>
