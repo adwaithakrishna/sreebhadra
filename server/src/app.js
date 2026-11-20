@@ -72,4 +72,9 @@ function createApp() {
   return app;
 }
 
-module.exports = { createApp, initializeDatabase };
+// Vercel's Express runtime expects the Express application itself as the
+// module export. Keep the named helpers attached for the local server entry.
+const app = createApp();
+module.exports = app;
+module.exports.createApp = createApp;
+module.exports.initializeDatabase = initializeDatabase;
