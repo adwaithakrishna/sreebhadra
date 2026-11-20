@@ -27,7 +27,7 @@ export default function Header({ brandHidden = false }) {
   data-site-logo
   className={brandHidden ? 'invisible' : 'visible'}
 >
-  <Logo light />
+  <Logo light large />
 </div>
         <nav aria-label="Main" className="hidden items-center gap-8 md:flex">
           {NAV.map((n) => (
