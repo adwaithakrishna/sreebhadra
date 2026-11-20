@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     // Vercel serves files from the repository's root public/ directory.
-    outDir: process.env.VERCEL ? '../public' : 'dist',
+    outDir: 'dist',
     emptyOutDir: true,
   },
   server: {
