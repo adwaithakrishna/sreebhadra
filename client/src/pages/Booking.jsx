@@ -128,7 +128,12 @@ function TrackRequest() {
 export default function Booking() {
   useDocumentTitle('Book your journey');
   const [params] = useSearchParams();
+  const packageId = params.get('package');
   const { data: vehicles, error: vErr, loading: vLoading, reload } = useAsync(api.vehicles, []);
+  const { data: packageData, error: packageError, loading: packageLoading } = useAsync(
+    () => packageId ? api.package(packageId) : Promise.resolve(null),
+    [packageId]
+  );
   const [v, setV] = useState({ ...EMPTY, vehicle: params.get('vehicle') || '' });
   const [touched, setTouched] = useState({});
   const [serverErr, setServerErr] = useState({});
@@ -137,6 +142,19 @@ export default function Booking() {
   const [busy, setBusy] = useState([]);
   const [done, setDone] = useState(null);
   const summary = useRef(null);
+  const packageLocked = Boolean(packageData);
+
+  useEffect(() => {
+    if (!packageData) return;
+    setV((current) => ({
+      ...current,
+      startLocation: packageData.startLocation,
+      stops: [packageData.destination],
+      startDate: packageData.startDate,
+      endDate: packageData.endDate,
+      startTime: packageData.startTime,
+    }));
+  }, [packageData]);
 
   const vehicle = useMemo(() => (vehicles || []).find((x) => x._id === v.vehicle) || null, [vehicles, v.vehicle]);
   // If a ?vehicle= id isn't in the public list, drop it.
@@ -187,7 +205,7 @@ export default function Booking() {
     if (avail.status === 'unavailable') return;
     setSubmit({ status: 'sending', message: '' });
     try {
-      const r = await api.createBooking({ ...v, passengers: Number(v.passengers), stops: v.stops.map((s) => s.trim()).filter(Boolean) });
+      const r = await api.createBooking({ ...v, ...(packageId ? { packageId } : {}), passengers: Number(v.passengers), stops: v.stops.map((s) => s.trim()).filter(Boolean) });
       setDone(r.booking);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -224,28 +242,31 @@ export default function Booking() {
   const blocked = avail.status === 'unavailable';
   return (
     <>
-      <PageHero eyebrow="Booking" title="Book your journey.">Tell us where you’re going and when. We’ll check the full date range against our confirmed bookings, then confirm with you personally.</PageHero>
+      <PageHero eyebrow={packageData ? 'Package booking' : 'Booking'} title={packageData ? `Book ${packageData.title}.` : 'Book your journey.'}>{packageData ? 'The package route, dates and departure time are fixed. Choose a vehicle and tell us who is travelling.' : 'Tell us where you’re going and when. We’ll check the full date range against our confirmed bookings, then confirm with you personally.'}</PageHero>
       <section className="container-x pb-16">
         {vLoading && <Spinner label="Loading vehicles…" />}
         {vErr && <ErrorState error={vErr} onRetry={reload} title="We can’t take bookings right now" />}
+        {packageId && packageLoading && <Spinner label="Loading package details…" />}
+        {packageId && packageError && <ErrorState error={packageError} title="This package can’t be booked" />}
         {vehicles && vehicles.length === 0 && <ErrorState error={{ message: 'No vehicles are open for booking at the moment. Please contact us.' }} title="No vehicles available" />}
-        {vehicles && vehicles.length > 0 && (
+        {vehicles && vehicles.length > 0 && (!packageId || packageData) && (
           <form onSubmit={onSubmit} noValidate className="grid gap-8 lg:grid-cols-[1fr_380px] lg:items-start">
             <div className="space-y-8">
+              {packageData && <Notice title="Package schedule is fixed">The starting place, destination, dates and departure time are set by this package and can’t be changed here.</Notice>}
               <Section n="1" title="Your route">
-                <Field id="b-start" label="Starting place" required autoComplete="off" placeholder="e.g. Hotel, airport, address or town" value={v.startLocation} onChange={set('startLocation')} onBlur={blur('startLocation')} error={show('startLocation')} />
+                <Field id="b-start" label="Starting place" required autoComplete="off" placeholder="e.g. Hotel, airport, address or town" value={v.startLocation} onChange={set('startLocation')} onBlur={blur('startLocation')} error={show('startLocation')} disabled={packageLocked} />
                 <div>
                   <p className="mb-1.5 text-sm font-bold text-forest" id="stops-label">Destination(s) / places to visit <span className="text-red-700" aria-hidden="true">*</span><span className="sr-only"> (required)</span></p>
                   <ul className="space-y-3" aria-labelledby="stops-label">
                     {v.stops.map((s, i) => (
                       <li key={i} className="flex gap-2">
-                        <input aria-label={`Stop ${i + 1}`} className={`field ${show('stops') && i === 0 ? 'field-error' : ''}`} placeholder={i === 0 ? 'First destination' : `Stop ${i + 1}`} value={s} onChange={(e) => { setStop(i, e.target.value); setServerErr((p) => ({ ...p, stops: undefined })); }} onBlur={blur('stops')} aria-invalid={show('stops') && i === 0 ? 'true' : undefined} aria-describedby={show('stops') ? 'stops-err' : undefined} />
+                        <input aria-label={`Stop ${i + 1}`} className={`field ${show('stops') && i === 0 ? 'field-error' : ''}`} placeholder={i === 0 ? 'First destination' : `Stop ${i + 1}`} value={s} onChange={(e) => { setStop(i, e.target.value); setServerErr((p) => ({ ...p, stops: undefined })); }} onBlur={blur('stops')} aria-invalid={show('stops') && i === 0 ? 'true' : undefined} aria-describedby={show('stops') ? 'stops-err' : undefined} disabled={packageLocked} />
                         {v.stops.length > 1 && <button type="button" onClick={() => removeStop(i)} aria-label={`Remove stop ${i + 1}`} className="inline-flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-xl border border-charcoal/25 bg-white text-forest hover:bg-red-50 hover:text-red-800"><IconTrash /></button>}
                       </li>
                     ))}
                   </ul>
                   {show('stops') && <p id="stops-err" role="alert" className="mt-1.5 text-sm font-medium text-red-800">⚠ {show('stops')}</p>}
-                  <Button variant="ghost" size="sm" className="mt-2 -ml-3" onClick={addStop} disabled={v.stops.length >= 15}><IconPlus size={18} />Add another stop</Button>
+                  {!packageLocked && <Button variant="ghost" size="sm" className="mt-2 -ml-3" onClick={addStop} disabled={v.stops.length >= 15}><IconPlus size={18} />Add another stop</Button>}
                 </div>
               </Section>
 
@@ -255,19 +276,19 @@ export default function Booking() {
                   {vehicles.map((x) => <option key={x._id} value={x._id}>{x.name} - up to {x.capacity} passengers</option>)}
                 </Field>
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <Field id="b-sd" type="date" label="Travel start date" required min={todayISO()} value={v.startDate} onChange={(e) => setDates(e.target.value, v.endDate && e.target.value > v.endDate ? '' : v.endDate)} onBlur={blur('startDate')} error={show('startDate')} />
-                  <Field id="b-ed" type="date" label="Travel end date" required min={v.startDate || todayISO()} value={v.endDate} onChange={(e) => setDates(v.startDate, e.target.value)} onBlur={blur('endDate')} error={show('endDate')} />
-                  <Field id="b-time" type="time" label="Journey start time" required value={v.startTime} onChange={set('startTime')} onBlur={blur('startTime')} error={show('startTime')} />
+                  <Field id="b-sd" type="date" label="Travel start date" required min={todayISO()} value={v.startDate} onChange={(e) => setDates(e.target.value, v.endDate && e.target.value > v.endDate ? '' : v.endDate)} onBlur={blur('startDate')} error={show('startDate')} disabled={packageLocked} />
+                  <Field id="b-ed" type="date" label="Travel end date" required min={v.startDate || todayISO()} value={v.endDate} onChange={(e) => setDates(v.startDate, e.target.value)} onBlur={blur('endDate')} error={show('endDate')} disabled={packageLocked} />
+                  <Field id="b-time" type="time" label="Journey start time" required value={v.startTime} onChange={set('startTime')} onBlur={blur('startTime')} error={show('startTime')} disabled={packageLocked} />
                   <Field id="b-pax" type="number" inputMode="numeric" min="1" max={vehicle?.capacity || undefined} label="Number of passengers" required value={v.passengers} onChange={set('passengers')} onBlur={blur('passengers')} hint={vehicle ? `${vehicle.name} seats up to ${vehicle.capacity}.` : undefined} error={show('passengers')} />
                 </div>
                 <div aria-live="polite"><AvailabilityPanel state={avail} vehicle={vehicle} /></div>
-                {v.vehicle ? (
+                {v.vehicle && !packageLocked ? (
                   <div>
                     <p className="mb-2 text-sm font-bold text-forest">Or pick your dates on the calendar</p>
                     <AvailabilityCalendar busy={busy} start={v.startDate} end={v.endDate} onChange={setDates} />
                     <p className="mt-2 text-sm text-charcoal/75">Click a start day, then an end day. Booked days are disabled; the full range is checked when you choose it.</p>
                   </div>
-                ) : <p className="text-sm text-charcoal/75">Select a vehicle to see its calendar.</p>}
+                ) : packageLocked ? <p className="text-sm text-charcoal/75">The package dates are fixed; choose a vehicle to check availability.</p> : <p className="text-sm text-charcoal/75">Select a vehicle to see its calendar.</p>}
               </Section>
 
               <Section n="3" title="Your details">

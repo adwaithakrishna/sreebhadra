@@ -1,9 +1,10 @@
 import Button from '../components/Button';
 import Reveal from '../components/Reveal';
 import VehicleCard from '../components/VehicleCard';
-import { Spinner, ErrorState, EmptyState } from '../components/States';
-import { IconArrow, IconClock, IconShield, IconStar, IconUsers } from '../components/Icons';
+import { Spinner, ErrorState, EmptyState, Notice } from '../components/States';
+import { IconArrow, IconClock, IconPin, IconShield, IconStar, IconUsers } from '../components/Icons';
 import { api } from '../lib/api';
+import { formatRange, formatTime } from '../lib/format';
 import { useAsync } from '../hooks/useAsync';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
@@ -23,6 +24,7 @@ export default function Home() {
   useDocumentTitle('');
   const { data: vehicles, error, loading, reload } = useAsync(api.vehicles, []);
   const { data: reviews, loading: reviewsLoading } = useAsync(api.reviews, []);
+  const { data: packages, error: packagesError, loading: packagesLoading, reload: reloadPackages } = useAsync(api.packages, []);
   const featured = (vehicles || []).slice(0, 3);
 
   return (
@@ -75,6 +77,42 @@ export default function Home() {
           <p>Every request is checked by a real person against the real calendar, so when we say a vehicle is yours, it is.</p>
           <Button to="/about" variant="ghost" className="-ml-4">About our service <IconArrow /></Button>
         </Reveal>
+      </section>
+
+      <section className="bg-sun-100 py-20 sm:py-24" aria-labelledby="home-packages-heading">
+        <div className="container-x">
+          <Reveal className="flex flex-wrap items-end justify-between gap-5">
+            <div>
+              <p className="eyebrow">New travel offers</p>
+              <h2 id="home-packages-heading" className="display-lg mt-3">Packages for your next trip.</h2>
+            </div>
+            <span className="rounded-full bg-forest px-4 py-2 text-sm font-bold text-ivory">Latest packages</span>
+          </Reveal>
+          <div className="mt-9">
+            {packagesLoading && <Spinner label="Loading travel packages…" />}
+            {packagesError && <ErrorState error={packagesError} onRetry={reloadPackages} title="Packages couldn’t be loaded" />}
+            {!packagesLoading && !packagesError && packages?.length === 0 && (
+              <Notice title="No current packages">New packages will appear here when the admin publishes an upcoming offer.</Notice>
+            )}
+            {!packagesLoading && !packagesError && packages?.length > 0 && (
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {packages.map((item, i) => (
+                  <Reveal key={item.id} delay={i * 70}>
+                    <article className="card flex h-full flex-col p-6">
+                      <p className="eyebrow">{item.title}</p>
+                      <h3 className="mt-2 flex items-start gap-2 font-display text-2xl font-extrabold text-forest"><IconPin className="mt-1 shrink-0" />{item.destination}</h3>
+                      <p className="mt-2 text-sm font-medium text-charcoal/75">{item.startLocation} → {item.destination}</p>
+                      <p className="mt-1 text-sm text-charcoal/75">{formatRange(item.startDate, item.endDate)} · {formatTime(item.startTime)}{item.duration ? ` · ${item.duration}` : ''}</p>
+                      {item.price && <p className="mt-2 text-sm font-bold text-forest">{item.price}</p>}
+                      <p className="mt-3 flex-1 leading-relaxed text-charcoal/85">{item.description}</p>
+                      <Button to={`/booking?package=${encodeURIComponent(item.id)}`} variant="outline" size="sm" className="mt-5 self-start">Book this package <IconArrow /></Button>
+                    </article>
+                  </Reveal>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Featured vehicles */}

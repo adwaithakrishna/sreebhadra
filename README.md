@@ -90,13 +90,14 @@ including simultaneous confirmations.
 
 ## API
 
-Public: `GET /api/vehicles`, `GET /api/trip-photos`, `GET /api/reviews`, `GET /api/bookings/history?phone=...`,
+Public: `GET /api/vehicles`, `GET /api/trip-photos`, `GET /api/reviews`, `GET /api/packages`, `GET /api/bookings/history?phone=...`,
 `POST /api/feedback`, `GET /api/vehicles/:id`, `GET /api/vehicles/:id/busy`,
 `GET /api/vehicles/:id/availability?startDate&endDate`, `POST /api/bookings`,
 `GET /api/bookings/track?reference&email`, `POST /api/contact`.
 
 Admin (cookie session): `POST /api/admin/login|logout`, `GET /api/admin/me|stats`,
 `GET|POST /api/admin/trips`, `DELETE /api/admin/trips/:id`, `GET /api/admin/feedback`,
+`GET|POST /api/admin/packages`, `DELETE /api/admin/packages/:id`,
 `GET /api/admin/bookings[/:id]`, `PATCH /api/admin/bookings/:id/status`,
 `GET|POST /api/admin/vehicles`, `PUT|DELETE /api/admin/vehicles/:id`,
 `POST /api/admin/vehicles/:id/images` (multipart: `images[]` + `altTexts[]`),

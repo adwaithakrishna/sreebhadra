@@ -8,6 +8,7 @@ const ITEMS = [
   { to: '/admin/vehicles', label: 'Vehicles', icon: IconCar },
   { to: '/admin/trips', label: 'Trip gallery', icon: IconRoute },
   { to: '/admin/feedback', label: 'Feedback', icon: IconStar },
+  { to: '/admin/packages', label: 'Packages', icon: IconRoute },
 ];
 
 export default function AdminNav({ onNavigate, className = '' }) {

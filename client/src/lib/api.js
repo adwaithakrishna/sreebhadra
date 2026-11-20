@@ -43,6 +43,8 @@ export const api = {
   contact: (body) => request('/contact', { method: 'POST', body }),
   tripPhotos: () => request('/trip-photos').then((d) => d.trips),
   reviews: () => request('/reviews').then((d) => d.reviews),
+  packages: () => request('/packages').then((d) => d.packages),
+  package: (id) => request(`/packages/${id}`).then((d) => d.package),
 
   admin: {
     login: (email, password) => request('/admin/login', { method: 'POST', body: { email, password } }),
@@ -74,5 +76,8 @@ export const api = {
     },
     deleteTrip: (id) => request(`/admin/trips/${id}`, { method: 'DELETE' }),
     feedback: () => request('/admin/feedback').then((d) => d.feedback),
+    packages: () => request('/admin/packages').then((d) => d.packages),
+    createPackage: (body) => request('/admin/packages', { method: 'POST', body }).then((d) => d.package),
+    deletePackage: (id) => request(`/admin/packages/${id}`, { method: 'DELETE' }),
   },
 };

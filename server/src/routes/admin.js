@@ -3,12 +3,12 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const mongoose = require('mongoose');
 const rateLimit = require('express-rate-limit');
-const { AdminUser, Vehicle, VehicleImage, TripGalleryPhoto, Booking, BookingLock, Feedback } = require('../models');
+const { AdminUser, Vehicle, VehicleImage, TripGalleryPhoto, Booking, BookingLock, Feedback, TravelPackage } = require('../models');
 const { asyncHandler, requireAdmin, signAdminToken, COOKIE, cookieOptions } = require('../middleware');
 const { HttpError } = require('../lib/errors');
 const { STATUSES } = require('../lib/status');
 const { validateVehicleInput } = require('../lib/validation');
-const { nowInTimezone } = require('../lib/dates');
+const { isValidDateString, isValidTimeString, nowInTimezone } = require('../lib/dates');
 const { changeStatus } = require('../services/availability');
 const { saveImage, deleteImage } = require('../services/storage');
 const config = require('../config');
@@ -60,6 +60,69 @@ router.post('/logout', (_req, res) => {
 router.use(requireAdmin);
 
 router.get('/me', (req, res) => res.json({ admin: { email: req.admin.email, name: req.admin.name } }));
+
+/* ------------------------------- packages ----------------------------------- */
+const packageView = (item) => ({
+  id: item._id,
+  title: item.title,
+  destination: item.destination,
+  startLocation: item.startLocation,
+  startDate: item.startDate,
+  endDate: item.endDate,
+  startTime: item.startTime,
+  duration: item.duration,
+  description: item.description,
+  price: item.price,
+  createdAt: item.createdAt,
+});
+
+router.get(
+  '/packages',
+  asyncHandler(async (_req, res) => {
+    const packages = await TravelPackage.find().sort({ createdAt: -1 }).lean();
+    res.json({ packages: packages.map(packageView) });
+  })
+);
+
+router.post(
+  '/packages',
+  asyncHandler(async (req, res) => {
+    const { title, destination, startLocation, startDate, endDate, startTime, duration = '', description, price = '' } = req.body || {};
+    if (typeof title !== 'string' || title.trim().length < 2 || title.trim().length > 80)
+      throw new HttpError(422, 'Package title must be 2 to 80 characters.');
+    if (typeof destination !== 'string' || destination.trim().length < 2 || destination.trim().length > 160)
+      throw new HttpError(422, 'Destination must be 2 to 160 characters.');
+    if (typeof startLocation !== 'string' || startLocation.trim().length < 2 || startLocation.trim().length > 160)
+      throw new HttpError(422, 'Starting place must be 2 to 160 characters.');
+    const today = nowInTimezone(config.timeZone);
+    if (!isValidDateString(startDate) || startDate < today.date) throw new HttpError(422, 'Choose a valid package start date today or later.');
+    if (!isValidDateString(endDate) || endDate < startDate) throw new HttpError(422, 'End date must be on or after the start date.');
+    if (!isValidTimeString(startTime)) throw new HttpError(422, 'Choose a valid departure time.');
+    if (startDate === today.date && startTime <= today.time) throw new HttpError(422, 'Departure time has already passed today.');
+    if (typeof duration !== 'string' || duration.trim().length > 80)
+      throw new HttpError(422, 'Duration must be 80 characters or fewer.');
+    if (typeof description !== 'string' || description.trim().length < 10 || description.trim().length > 1000)
+      throw new HttpError(422, 'Description must be 10 to 1000 characters.');
+    if (typeof price !== 'string' || price.trim().length > 80)
+      throw new HttpError(422, 'Price must be 80 characters or fewer.');
+    const item = await TravelPackage.create({
+      title: title.trim(), destination: destination.trim(), startLocation: startLocation.trim(),
+      startDate, endDate, startTime, duration: duration.trim(),
+      description: description.trim(), price: price.trim(),
+    });
+    res.status(201).json({ package: packageView(item.toObject()) });
+  })
+);
+
+router.delete(
+  '/packages/:id',
+  asyncHandler(async (req, res) => {
+    needId(req.params.id, 'Package');
+    const item = await TravelPackage.findByIdAndDelete(req.params.id);
+    if (!item) throw new HttpError(404, 'Package not found.');
+    res.json({ ok: true });
+  })
+);
 
 router.get(
   '/feedback',

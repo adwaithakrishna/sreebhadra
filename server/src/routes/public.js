@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const rateLimit = require('express-rate-limit');
-const { Vehicle, VehicleImage, TripGalleryPhoto, Booking, Feedback, ContactMessage } = require('../models');
+const { Vehicle, VehicleImage, TripGalleryPhoto, Booking, Feedback, TravelPackage, ContactMessage } = require('../models');
 const { asyncHandler } = require('../middleware');
 const { HttpError, AvailabilityError } = require('../lib/errors');
 const { validateBookingInput, validateContactInput } = require('../lib/validation');
@@ -24,6 +24,15 @@ const phoneLookup = (value) => {
   const digits = value.replace(/\D/g, '');
   if (digits.length < 7 || digits.length > 15) return null;
   return { digits, regex: new RegExp(`^\\D*${digits.split('').join('\\D*')}\\D*$`) };
+};
+const upcomingPackageQuery = () => {
+  const now = nowInTimezone(config.timeZone);
+  return {
+    $and: [
+      { endDate: { $gte: now.date } },
+      { $or: [{ startDate: { $gt: now.date } }, { startDate: now.date, startTime: { $gt: now.time } }] },
+    ],
+  };
 };
 
 /** Attach images[] (primary first) to vehicle plain objects. */
@@ -88,6 +97,48 @@ router.get(
 );
 
 router.get(
+  '/packages',
+  asyncHandler(async (_req, res) => {
+    const packages = await TravelPackage.find(upcomingPackageQuery()).sort({ createdAt: -1 }).limit(6).lean();
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json({ packages: packages.map((item) => ({
+      id: item._id,
+      title: item.title,
+      destination: item.destination,
+      startLocation: item.startLocation,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      startTime: item.startTime,
+      duration: item.duration,
+      description: item.description,
+      price: item.price,
+    })) });
+  })
+);
+
+router.get(
+  '/packages/:id',
+  asyncHandler(async (req, res) => {
+    if (!isId(req.params.id)) throw new HttpError(404, 'Package not found.');
+    const item = await TravelPackage.findOne({ _id: req.params.id, ...upcomingPackageQuery() }).lean();
+    if (!item) throw new HttpError(404, 'This package is no longer available.');
+    res.set('Cache-Control', 'no-store');
+    res.json({ package: {
+      id: item._id,
+      title: item.title,
+      destination: item.destination,
+      startLocation: item.startLocation,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      startTime: item.startTime,
+      duration: item.duration,
+      description: item.description,
+      price: item.price,
+    } });
+  })
+);
+
+router.get(
   '/vehicles/:id',
   asyncHandler(async (req, res) => {
     if (!isId(req.params.id)) throw new HttpError(404, 'Vehicle not found.');
@@ -146,7 +197,22 @@ const publicBooking = (b, vehicleName) => ({
 router.post(
   '/bookings',
   asyncHandler(async (req, res) => {
-    const { errors, value } = validateBookingInput(req.body, { timeZone: config.timeZone });
+    const body = req.body || {};
+    let selectedPackage = null;
+    if (body.packageId !== undefined && body.packageId !== '') {
+      if (typeof body.packageId !== 'string' || !isId(body.packageId)) throw new HttpError(400, 'Invalid package.');
+      selectedPackage = await TravelPackage.findOne({ _id: body.packageId, ...upcomingPackageQuery() }).lean();
+      if (!selectedPackage) throw new HttpError(409, 'This package is no longer available.');
+    }
+    const bookingInput = selectedPackage ? {
+      ...body,
+      startLocation: selectedPackage.startLocation,
+      stops: [selectedPackage.destination],
+      startDate: selectedPackage.startDate,
+      endDate: selectedPackage.endDate,
+      startTime: selectedPackage.startTime,
+    } : body;
+    const { errors, value } = validateBookingInput(bookingInput, { timeZone: config.timeZone });
 
     let vehicle = null;
     if (!errors.vehicle) {
@@ -165,6 +231,7 @@ router.post(
       try {
         booking = await Booking.create({
           ...value,
+          package: selectedPackage ? selectedPackage._id : null,
           reference: newReference(),
           status: 'pending',
           statusHistory: [{ status: 'pending', by: 'customer' }],

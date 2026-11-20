@@ -52,6 +52,7 @@ const bookingSchema = new Schema(
   {
     reference: { type: String, required: true, unique: true },
     vehicle: { type: Schema.Types.ObjectId, ref: 'Vehicle', required: true },
+    package: { type: Schema.Types.ObjectId, ref: 'TravelPackage', default: null },
     startLocation: { type: String, required: true, trim: true, maxlength: 160 },
     stops: { type: [String], validate: (v) => v.length >= 1 },
     // Stored as YYYY-MM-DD strings: no timezone drift, lexicographic order == date order.
@@ -101,6 +102,22 @@ const feedbackSchema = new Schema(
   { timestamps: true }
 );
 
+/* ------------------------------- TravelPackage ------------------------------- */
+const travelPackageSchema = new Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 80 },
+    destination: { type: String, required: true, trim: true, maxlength: 160 },
+    startLocation: { type: String, required: true, trim: true, maxlength: 160 },
+    startDate: { type: String, required: true, match: DATE_RE },
+    endDate: { type: String, required: true, match: DATE_RE },
+    startTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    duration: { type: String, default: '', trim: true, maxlength: 80 },
+    description: { type: String, required: true, trim: true, maxlength: 1000 },
+    price: { type: String, default: '', trim: true, maxlength: 80 },
+  },
+  { timestamps: true }
+);
+
 /* --------------------------------- AdminUser --------------------------------- */
 const adminUserSchema = new Schema(
   {
@@ -132,6 +149,7 @@ module.exports = {
   Booking: model('Booking', bookingSchema),
   BookingLock: model('BookingLock', bookingLockSchema),
   Feedback: model('Feedback', feedbackSchema),
+  TravelPackage: model('TravelPackage', travelPackageSchema),
   AdminUser: model('AdminUser', adminUserSchema),
   ContactMessage: model('ContactMessage', contactMessageSchema),
 };

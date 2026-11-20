@@ -15,6 +15,7 @@ import Schedule from './admin/Schedule';
 import Vehicles from './admin/Vehicles';
 import Trips from './admin/Trips';
 import Feedback from './admin/Feedback';
+import Packages from './admin/Packages';
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="vehicles" element={<Vehicles />} />
           <Route path="trips" element={<Trips />} />
           <Route path="feedback" element={<Feedback />} />
+          <Route path="packages" element={<Packages />} />
         </Route>
       </Route>
     </Routes>

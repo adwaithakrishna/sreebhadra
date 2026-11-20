@@ -15,7 +15,9 @@ const config = {
   mongoUri: required('MONGODB_URI'),
   jwtSecret: required('JWT_SECRET'),
   clientOrigins: (process.env.CLIENT_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean),
-  timeZone: process.env.BUSINESS_TIMEZONE || 'UTC',
+  // Package departures and date validation use the business locale. Keep this
+  // aligned with the documented default when BUSINESS_TIMEZONE is not set.
+  timeZone: process.env.BUSINESS_TIMEZONE || 'Asia/Kolkata',
   storage: {
     driver: process.env.STORAGE_DRIVER || 'local',
     uploadDir: process.env.UPLOAD_DIR || 'uploads',
